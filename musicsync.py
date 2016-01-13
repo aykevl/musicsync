@@ -46,9 +46,8 @@ tmp_number = 0
 
 class MusicSync:
     ''' Copies new files from one source to a destination, possibly transcoding
-        them (at least when they are lossless).  Removes all files that aren't
-        in the source.  #Removes all files that have been removed in the dest.
-        Updates files changed at one of the two places.
+        them (at least when they are lossless). Removes all files that aren't in
+        the source. Updates files changed at one of the two places.
     '''
     def __init__ (self, source, dest, exclude=(), excludeTranscode=(), lossy_ext=LOSSY_EXT, minimum_transcode_bitrate=MINIMUM_TRANSCODE_BITRATE, confirmRemove=True):
         self.source = source.rstrip('/')+'/'
