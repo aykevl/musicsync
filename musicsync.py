@@ -58,6 +58,7 @@ class MusicSync:
         self.lossy_ext = lossy_ext
         self.minimum_transcode_bitrate = minimum_transcode_bitrate
         self.confirmRemove = confirmRemove
+        self.db = None
 
     def sync(self):
         self.musicDirs = {} # directories containing music
@@ -129,6 +130,52 @@ class MusicSync:
                 else:
                     if ext in MUSICFORMATS:
                         self.musicDirs[reldir] = fulldir
+
+    def getDB(self):
+        if self.db is None:
+            self.loadDB()
+        return self.db
+
+    def loadDB(self):
+        self.db = {}
+        xmldata = xml.etree.ElementTree.parse(RHYTHMBOXDB)
+        root = xmldata.getroot()
+        for entry in root:
+            if entry.attrib['type'] != 'song':
+                continue
+
+            properties = {}
+            for property in entry:
+                properties[property.tag] = property.text
+
+            path = urllib.parse.unquote(properties['location'])
+
+            if not path.startswith('file://'):
+                raise ValueError('not a file:// URL: ' + path)
+            path = path[len('file://'):]
+
+            if path.endswith('.part'):
+                continue
+
+            if not os.path.isfile(path):
+                continue
+
+            if not path.startswith(self.source):
+                continue
+
+            relpath = path[len(self.source):]
+
+            artist = properties['artist']
+            if 'album-artist' in properties:
+                artist = properties['album-artist']
+            album = properties['album']
+            title = properties['title']
+
+            if artist not in self.db:
+                self.db[artist] = {}
+            if album not in self.db[artist]:
+                self.db[artist][album] = {}
+            self.db[artist][album][title] = relpath
 
     def mayCopy(self, path):
         for nc in self.exclude:
