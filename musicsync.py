@@ -29,6 +29,7 @@ MUSICFORMATS    = LOSSYFORMATS | LOSSLESSFORMATS
 COVERS          = {'cover.jpg', 'albumart.jpg', 'folder.jpg', 'cover.png', 'albumart.png', 'folder.png'}
 # skip these files
 OTHERFORMATS    = {'.part', '.swp', '.txt', '.jpg', '.png', '.bmp', '.gif', '.zip', '.rar'}
+IGNORE_FILE     = 'musicsync-ignore.txt'
 
 # http://www.hydrogenaudio.org/forums/index.php?showtopic=44310
 # use ~66kbps.
@@ -83,6 +84,17 @@ class MusicSync:
                 dirs.remove('EAC')
             if '.sync' in dirs:
                 dirs.remove('.sync')
+            if IGNORE_FILE in files:
+                for fn in open(os.path.join(directory, IGNORE_FILE), 'r').readlines():
+                    fn = fn.rstrip('\r\n')
+                    if not fn:
+                        continue
+                    if fn in dirs:
+                        dirs.remove(fn)
+                    elif fn in files:
+                        files.remove(fn)
+                    else:
+                        print ('Ignored filename not found:', fn)
             dirs.sort()
             files.sort()
             for fn in files:
