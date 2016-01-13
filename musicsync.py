@@ -329,7 +329,7 @@ class MusicSync:
                     dst[tag.upper()] = tags[tag]
                     changed = True
             for tag in dst:
-                if not tag.lower() in src:
+                if not tag.lower() in tags:
                     if log:
                         print ('  deleted: %s (%r)' % (tag, dst.get(tag)))
                     del dst[tag]
