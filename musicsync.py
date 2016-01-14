@@ -1,16 +1,16 @@
 
 import sys
 import os
+import stat
 import errno
 import time
 from fcntl import *
 import subprocess
 from subprocess import Popen, PIPE
 import json
-
+from collections import namedtuple
 import xml.etree.ElementTree
 import urllib.parse
-
 import threading
 from queue import Queue
 import multiprocessing
@@ -19,6 +19,8 @@ import mutagen.easymp4
 import mutagen.easyid3
 import mutagen.oggopus
 import mutagen.flac
+
+fileinfo = namedtuple('fileinfo', ['relpath', 'stat', 'duration', 'bitrate'])
 
 TMPDIR          = '/tmp'
 RHYTHMBOXDB     = os.path.expanduser('~/.local/share/rhythmbox/rhythmdb.xml')
@@ -57,7 +59,8 @@ class MusicSync:
         self.lossy_ext = lossy_ext
         self.minimum_transcode_bitrate = minimum_transcode_bitrate
         self.confirmRemove = confirmRemove
-        self.db = None
+        self.fileDb = None
+        self.artistDb = None
 
     def sync(self):
         self.musicDirs = {} # directories containing music
@@ -130,13 +133,19 @@ class MusicSync:
                     if ext in MUSICFORMATS:
                         self.musicDirs[reldir] = fulldir
 
-    def getDB(self):
-        if self.db is None:
+    def getArtistDB(self):
+        if self.artistDb is None:
             self.loadDB()
-        return self.db
+        return self.artistDb
+
+    def getFileDB(self):
+        if self.fileDb is None:
+            self.loadDB()
+        return self.fileDb
 
     def loadDB(self):
-        self.db = {}
+        self.artistDb = {}
+        self.fileDb = {}
         xmldata = xml.etree.ElementTree.parse(RHYTHMBOXDB)
         root = xmldata.getroot()
         for entry in root:
@@ -156,7 +165,13 @@ class MusicSync:
             if path.endswith('.part'):
                 continue
 
-            if not os.path.isfile(path):
+            try:
+                st = os.stat(path)
+            except os.error:
+                continue
+
+            # if not os.path.isfile(path):
+            if not stat.S_ISREG(st.st_mode):
                 continue
 
             if not path.startswith(self.source):
@@ -169,12 +184,19 @@ class MusicSync:
                 artist = properties['album-artist']
             album = properties['album']
             title = properties['title']
+            duration = int(properties['duration'])
+            bitrate = None
+            if 'bitrate' in properties:
+                bitrate = int(properties['bitrate'])
 
-            if artist not in self.db:
-                self.db[artist] = {}
-            if album not in self.db[artist]:
-                self.db[artist][album] = {}
-            self.db[artist][album][title] = relpath
+            info = fileinfo(relpath, st, duration, bitrate)
+
+            if artist not in self.artistDb:
+                self.artistDb[artist] = {}
+            if album not in self.artistDb[artist]:
+                self.artistDb[artist][album] = {}
+            self.artistDb[artist][album][title] = info
+            self.fileDb[path] = info
 
     def mayCopy(self, path):
         for nc in self.exclude:
@@ -444,10 +466,8 @@ class MusicSync:
     def transcodeLossy(self):
         if self.minimum_transcode_bitrate == 0:
             files, total_bytes = self.getAllMP3s()
-        elif self.minimum_transcode_bitrate == MINIMUM_TRANSCODE_BITRATE:
-            files, total_bytes = self.getMP3sFromRhythmbox()
         else:
-            raise ValueError('unknown minimum_transcode_bitrate: ' + str(self.minimum_transcode_bitrate))
+            files, total_bytes = self.getHighBitrateMP3s()
 
         if not files:
             return
@@ -476,65 +496,45 @@ class MusicSync:
                     if os.path.isfile(outpath):
                         continue
 
-                    total_bytes += os.stat(path).st_size
+                    st = os.stat(path)
+                    total_bytes += st.st_size
+
+                    duration = st.st_size / 40 # for ~320kbps
+                    if path in self.getFileDB():
+                        duration = self.fileDb[path].duration
 
                     mp3files[path] = {
                         'outpath': outpath,
-                        'duration': 1, # TODO
+                        'duration': duration,
                     }
 
         return mp3files, total_bytes
 
-    def getMP3sFromRhythmbox(self):
-        if not os.path.isfile(RHYTHMBOXDB):
-            print ('Not transcoding HQ MP3s, no Rhythmbox DB available')
-            return
-
-        xmldata = xml.etree.ElementTree.parse(RHYTHMBOXDB)
-        root = xmldata.getroot()
-
+    def getHighBitrateMP3s(self):
         total_bytes = 0
 
         # {path: {'duration': ..., 'outpath': ...}}
         files = {}
-        for entry in root:
-            properties = {}
-            for property in entry:
-                properties[property.tag] = property.text
+        for path, info in self.getFileDB().items():
 
-            if entry.attrib['type'] != 'song':
+            if not path.lower().endswith('.mp3'):
                 continue
-
-            path = urllib.parse.unquote(properties['location'])
-
-            if os.path.splitext(path)[1].lower() != '.mp3':
-                continue
-
-            if not path.startswith('file://'):
-                raise ValueError('not a file:// URL: ' + path)
-            path = path[len('file://'):]
 
             if not self.mayTranscode(path):
                 continue
 
-            if not path.startswith(self.source):
-                continue
-
-            outpath = self.dest + path[len(self.source):] + self.lossy_ext
+            outpath = self.dest + info.relpath + self.lossy_ext
             if os.path.isfile(outpath):
                 continue
 
-            if int(properties['bitrate']) < self.minimum_transcode_bitrate:
+            if info.bitrate < self.minimum_transcode_bitrate:
                 continue
 
-            if not os.path.isfile(path):
-                continue
-
-            total_bytes += os.stat(path).st_size
+            total_bytes += info.stat.st_size
 
             files[path] = {
                 'outpath': outpath,
-                'duration': int(properties['duration']),
+                'duration': info.duration,
             }
 
         return files, total_bytes
