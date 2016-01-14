@@ -221,9 +221,7 @@ class MusicSync:
     def doSync(self):
         self.toConvert = []
 
-        tps = list(self.seenFiles.keys())
-        tps.sort()
-        for tp in tps:
+        for tp in sorted(self.seenFiles.keys()):
             path = self.seenFiles[tp]
             ext = os.path.splitext(path)[1].lower()
             if ext.lower() in LOSSLESSFORMATS:
@@ -576,12 +574,9 @@ class MusicSync:
             t.start()
             threads.append(t)
 
-        paths = list(files.keys())
-        paths.sort()
-
         # transcode all MP3s
         statusLine = ''
-        for path in paths:
+        for path in sorted(files.keys()):
             properties = files[path]
             outpath = properties['outpath']
 
