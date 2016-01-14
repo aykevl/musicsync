@@ -4,6 +4,7 @@ import os
 import stat
 import errno
 import time
+import math
 from fcntl import *
 import subprocess
 from subprocess import Popen, PIPE
@@ -552,10 +553,9 @@ class MusicSync:
         if not files:
             return
 
-        duration_total = 0
-        duration_done = 0
-        for properties in files.values():
-            duration_total += properties['duration']
+        duration_total = sum(map(lambda o: o['duration'], files.values()))
+        duration_started = 0
+        current_durations = []
 
         def worker(queue):
             while True:
@@ -589,14 +589,18 @@ class MusicSync:
             queue.join()
             print (' '*len(statusLine)+'\r'+path)
 
-            duration_done += properties['duration']
+            duration_started += properties['duration']
+            current_durations = (current_durations + [properties['duration']])[-4:]
 
             now = time.time()
+
+            # approximate how much of the durations is finished
+            duration_done = duration_started - sum(current_durations[math.ceil(len(current_durations)/2):])
 
             speed = duration_done/(now-start) # music-seconds per time-second
             remaining_time = (duration_total-duration_done)/speed
             percent = duration_done*100/duration_total
-            statusLine = '%.2f%% %dx (remaining: %dm)' % (percent, speed, remaining_time/60+0.5)
+            statusLine = '%.2f%% %dx (remaining: %d:%02d)' % (percent, speed, remaining_time//60, remaining_time%60)
             print (statusLine, end='\r')
             sys.stdout.flush()
 
@@ -608,9 +612,9 @@ class MusicSync:
             t.join()
 
         total_time = time.time()-start
-        avg_speed  = duration_done/total_time
+        avg_speed  = duration_total/total_time
         # this also overwrites the progress indicator
-        print ('\rFinished in %d minutes (avg. speed %.1fx)' % (total_time/60+0.5, avg_speed))
+        print ('\rFinished in %d:%02d (avg. speed %.1fx)' % (total_time//60, total_time%60, avg_speed))
 
     def transcodeFile(self, inpath, outpath):
         if not outpath.endswith(self.lossy_ext):
