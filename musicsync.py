@@ -268,7 +268,7 @@ class MusicSync:
                 os.link(path, destpath)
 
 
-    def copyTags (self, srcFile, dstFile, log=False, albumArtistWorkaround=False):
+    def copyTags (self, srcFile, dstFile, log=False, limitTags=False):
         tags = {
         }
         if srcFile.lower().endswith('.flac'):
@@ -291,12 +291,19 @@ class MusicSync:
 
         changed = False
 
-        # Some media players don't support the album artist tag, or only
-        # partially.
-        if albumArtistWorkaround:
-            if 'albumartist' in tags:
+        # Some media players don't support many tags.
+        if limitTags:
+            if tags.get('albumartist'):
                 tags['artist'] = tags['albumartist']
+            if 'albumartist' in tags:
                 del tags['albumartist']
+            if tags.get('tracknumber') and tags.get('discnumber'):
+                tracknr = int(tags['tracknumber'][0].split('/')[0])
+                discnr = int(tags['discnumber'][0].split('/')[0])
+                tags['tracknumber'] = [str(discnr * 100 + tracknr)]
+            if 'discnumber' in tags:
+                del tags['discnumber']
+
 
         if dstFile.endswith('.part'):
             dstExt = os.path.splitext(dstFile[:-len('.part')])[1]
