@@ -292,15 +292,15 @@ class MusicSync:
 
         # Some media players don't support many tags.
         if limitTags:
-            if tags.get('albumartist'):
-                tags['artist'] = tags['albumartist']
             if 'albumartist' in tags:
+                if tags['albumartist'][0]:
+                    tags['artist'] = tags['albumartist']
                 del tags['albumartist']
-            if tags.get('tracknumber') and tags.get('discnumber'):
-                tracknr = int(tags['tracknumber'][0].split('/')[0])
-                discnr = int(tags['discnumber'][0].split('/')[0])
-                tags['tracknumber'] = [str(discnr * 100 + tracknr)]
             if 'discnumber' in tags:
+                if tags['discnumber'][0] and tags.get('tracknumber', [''])[0]:
+                    tracknr = int(tags['tracknumber'][0].split('/')[0])
+                    discnr = int(tags['discnumber'][0].split('/')[0])
+                    tags['tracknumber'] = [str(discnr * 100 + tracknr)]
                 del tags['discnumber']
 
 
