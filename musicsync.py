@@ -184,7 +184,6 @@ class MusicSync:
             if 'album-artist' in properties:
                 artist = properties['album-artist']
             album = properties['album']
-            title = properties['title']
             duration = int(properties['duration'])
             bitrate = None
             if 'bitrate' in properties:
@@ -195,8 +194,8 @@ class MusicSync:
             if artist not in self.artistDb:
                 self.artistDb[artist] = {}
             if album not in self.artistDb[artist]:
-                self.artistDb[artist][album] = {}
-            self.artistDb[artist][album][title] = info
+                self.artistDb[artist][album] = []
+            self.artistDb[artist][album].append(info)
             self.fileDb[path] = info
 
     def mayCopy(self, path):
