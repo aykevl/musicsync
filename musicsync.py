@@ -82,12 +82,6 @@ class MusicSync:
         ''' Scan source directories '''
 
         for directory, dirs, files in os.walk(base):
-            if 'nophone' in dirs:
-                dirs.remove('nophone')
-            if 'EAC' in dirs:
-                dirs.remove('EAC')
-            if '.sync' in dirs:
-                dirs.remove('.sync')
             if IGNORE_FILE in files:
                 for fn in open(os.path.join(directory, IGNORE_FILE), 'r').readlines():
                     fn = fn.rstrip('\r\n')
