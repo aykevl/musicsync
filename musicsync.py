@@ -75,8 +75,8 @@ class MusicSync:
         self.convertLossless()
         self.transcodeLossy()
 
-        self.findOld()
-        self.mayClearOld()
+        paths = self.findOld()
+        self.mayClearOld(paths)
 
     def scandir(self, base):
         ''' Scan source directories '''
@@ -368,27 +368,30 @@ class MusicSync:
                 print ('cp tags:', dstFile)
             dst.save()
 
-    def findOld (self):
-        self.oldFiles = []
-        for directory, dirs, files in os.walk(self.dest, topdown=False):
+    def findOld(self):
+        paths = []
+        for directory, dirs, files in os.walk(self.dest):
             dirs.sort()
             files.sort()
+
+            for n in readIgnoreFile(directory):
+                if n in dirs:
+                    dirs.remove(n)
+                elif n in files:
+                    files.remove(n)
+                else:
+                    print('Ignored file not found:', n)
+
             for fn in files:
                 path      = os.path.join(directory, fn)
                 relpath   = os.path.relpath(path, self.dest)
                 trackpath, ext = os.path.splitext(relpath)
 
-                if path.startswith('/home/ayke/Music-portable/.sync/'):
-                    continue
-
                 # transcoded MP3 files
                 if relpath.lower().endswith('.mp3' + self.lossy_ext):
                     trackpath = os.path.splitext(trackpath)[0]
                 elif ext.lower() == '.mp3' and os.path.isfile(path + self.lossy_ext):
-                    self.oldFiles.append(path)
-                    continue
-
-                if path.startswith('/home/ayke/Music-portable/.sync/'):
+                    paths.append(path)
                     continue
 
                 if path.startswith('/home/ayke/Music-portable/.stignore'):
@@ -396,16 +399,17 @@ class MusicSync:
 
                 if trackpath not in self.seenFiles \
                         or os.path.dirname(relpath) not in self.musicDirs:
-                    self.oldFiles.append(path)
+                    paths.append(path)
+        return paths
 
-    def mayClearOld(self):
+    def mayClearOld(self, paths):
         # first remove all old files
-        if self.oldFiles:
+        if paths:
             print ('Files to remove:')
-            for path in self.oldFiles:
+            for path in paths:
                 print (' * ', path)
             if not self.confirmRemove or input('Remove [y/N]? ').strip().lower() == 'y':
-                for path in self.oldFiles:
+                for path in paths:
                     # file could have been removed in the meantime
                     if os.path.isfile(path):
                         os.remove(path)
@@ -705,3 +709,18 @@ def canonicalIndex(value):
     if isinstance(value, str):
         value = [value]
     return list(map(lambda v: '/'.join(map(str, map(int, v.split('/')))), value))
+
+def readIgnoreFile(dirname):
+    '''
+    Read IGNORE_FILE and return the contents as a set.
+    '''
+    names = set()
+    ignoreFile = os.path.join(dirname, IGNORE_FILE)
+    if os.path.isfile(ignoreFile):
+        names.add(IGNORE_FILE)
+        for fn in open(ignoreFile, 'r').readlines():
+            fn = fn.rstrip('\r\n')
+            if not fn:
+                continue
+            names.add(fn)
+    return names
