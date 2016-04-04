@@ -178,6 +178,11 @@ class MusicSync:
             if 'album-artist' in properties:
                 artist = properties['album-artist']
             album = properties['album']
+            if not 'duration' in properties:
+                # This is likely an invalid file (e.g. Rhythmbox thinks a PNG
+                # image is a music file).
+                print('Unknown duration:', relpath)
+                continue
             duration = int(properties['duration'])
             bitrate = None
             if 'bitrate' in properties:
