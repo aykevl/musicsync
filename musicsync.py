@@ -141,6 +141,8 @@ class MusicSync:
     def loadDB(self):
         self.artistDb = {}
         self.fileDb = {}
+        if not os.path.isfile(RHYTHMBOXDB):
+            return
         xmldata = xml.etree.ElementTree.parse(RHYTHMBOXDB)
         root = xmldata.getroot()
         for entry in root:
