@@ -322,6 +322,13 @@ class MusicSync:
             for tag in tags:
                 if tag in {'tracknumber', 'discnumber'} and canonicalIndex(tags[tag][0]) == canonicalIndex(dst.get(tag)):
                     continue
+                if tag == 'bpm':
+                    # check that it is an int
+                    try:
+                        map(int, tags[tag][0])
+                    except ValueError:
+                        print('not a valid BPM value for MP4:', tags[tag])
+                        continue
                 if tag in mutagen.easymp4.EasyMP4.Set and tags[tag] != dst.get(tag):
                     if log:
                         print ('changed: %s (%r => %r)' % (tag, dst.get(tag), tags[tag]))
