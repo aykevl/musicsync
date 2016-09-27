@@ -431,7 +431,7 @@ class MusicSync:
         # now remove empty dirs
         # It's a bit redundant, but it's the easiest option and shouldn't have
         # such a performance impact
-        for directory, dirs, files in os.walk(self.dest, topdown=False):
+        for directory, dirs, files in os.walk(self.dest):
             dirs.sort()
             for dn in dirs:
                 path = os.path.join(directory, dn)
